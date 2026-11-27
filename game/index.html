@@ -1,0 +1,28 @@
+<!DOCTYPE html>
+<html lang="id">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Merapi Ridge Run — Terbang di Atas Kepulauan Vulkanik</title>
+<link rel="stylesheet" href="src/hud.css">
+<style>
+  html, body { margin: 0; padding: 0; height: 100%; overflow: hidden; background: #0a1622; }
+  canvas { display: block; }
+  #mrr-toast {
+    position: fixed; left: 50%; top: 84px; transform: translateX(-50%);
+    background: rgba(8, 20, 32, 0.82); color: #ffd27f;
+    font: bold 17px/1.4 system-ui, sans-serif; text-align: center;
+    padding: 8px 18px; border-radius: 10px; border: 1px solid rgba(255, 210, 127, 0.5);
+    opacity: 0; transition: opacity 0.3s; pointer-events: none; z-index: 40;
+    max-width: 86vw;
+  }
+</style>
+<script type="importmap">
+{ "imports": { "three": "./vendor/three.min.js" } }
+</script>
+</head>
+<body>
+<div id="mrr-toast" role="status"></div>
+<script type="module" src="./src/main.js"></script>
+</body>
+</html>
