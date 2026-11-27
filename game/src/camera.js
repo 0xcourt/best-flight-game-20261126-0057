@@ -27,16 +27,17 @@ export function createCameraRig(camera) {
     const forward = new THREE.Vector3(Math.sin(hRad), 0, -Math.cos(hRad));
 
     if (rig.mode === 'cockpit') {
-      // Pilot's seat: just behind the panel, eyes above the nose.
+      // Pilot's seat: just behind the instrument panel, eyes above it,
+      // looking slightly down over the panel at the world ahead.
       const eye = tmpTarget
         .copy(aircraftPos)
-        .addScaledVector(forward, 0.4)
-        .add(new THREE.Vector3(0, 1.15, 0));
+        .addScaledVector(forward, -1.6)
+        .add(new THREE.Vector3(0, 1.45, 0));
       camera.position.copy(eye);
       tmpLook
         .copy(aircraftPos)
         .addScaledVector(forward, 60)
-        .add(new THREE.Vector3(0, 1.15 + Math.tan(degToRad(pitchDeg)) * 40, 0));
+        .add(new THREE.Vector3(0, 1.45 + Math.tan(degToRad(pitchDeg)) * 40, 0));
       camera.up.set(Math.sin(degToRad(-rollDeg)) * 0.25, 1, 0);
       camera.lookAt(tmpLook);
       camera.up.set(0, 1, 0);

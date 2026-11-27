@@ -22,10 +22,8 @@ const MISSION_PARAM = params.get('mission') || 'ring';
 const VIEW_PARAM = params.get('view') || 'chase';
 const HAS_SHOT = params.has('shot');
 
-const RUNWAY_START = { x: RUNWAY.x, y: RUNWAY.elevation + 2, z: RUNWAY.z + 190, headingDeg: 0, pitchDeg: 0, speed: 0, throttle: 0 };
-
 // --- Renderer / scene -------------------------------------------------------
-const renderer = new THREE.WebGLRenderer({ antialias: true, powerPreference: 'high-performance' });
+const renderer = new THREE.WebGLRenderer({ antialias: false, powerPreference: 'high-performance' });
 renderer.setPixelRatio(Math.min(window.devicePixelRatio || 1, 1.25));
 renderer.setSize(window.innerWidth, window.innerHeight);
 renderer.outputColorSpace = THREE.SRGBColorSpace;
@@ -47,6 +45,9 @@ scene.add(new THREE.AmbientLight(0xffffff, 0.15));
 
 // --- World ------------------------------------------------------------------
 const terrain = createTerrain(scene, SEED);
+// The strip elevation is fixed by the terrain builder from local height, so
+// the start pose is computed only after the world exists.
+const RUNWAY_START = { x: RUNWAY.x, y: RUNWAY.elevation + 2, z: RUNWAY.z + 190, headingDeg: 0, pitchDeg: 0, speed: 0, throttle: 0 };
 const aircraft = createAircraft(scene);
 const flight = createFlight(terrain);
 const missions = createMissionManager(scene, terrain, SEED);
@@ -105,6 +106,54 @@ function toast(msg, seconds = 3.2) {
   }
 }
 
+// --- Menu / end overlays (this game's own screens; the HUD is hud.js) -----
+const menuEl = document.getElementById('mrr-menu');
+const endEl = document.getElementById('mrr-end');
+const endTitleEl = document.getElementById('mrr-end-title');
+const endTextEl = document.getElementById('mrr-end-text');
+const endScoreEl = document.getElementById('mrr-end-score');
+let lastCrashReason = '';
+let lastOverlayState = '';
+function syncMissionButtons() {
+  document.querySelectorAll('#mrr-menu [data-mission]').forEach((b) => {
+    b.classList.toggle('sel', b.getAttribute('data-mission') === window.MRR.mission);
+  });
+}
+document.querySelectorAll('#mrr-menu [data-mission]').forEach((b) => {
+  b.addEventListener('click', () => {
+    setMission(b.getAttribute('data-mission'));
+    syncMissionButtons();
+  });
+});
+const startBtn = document.getElementById('mrr-start');
+if (startBtn) startBtn.addEventListener('click', () => startFlight());
+const restartBtn = document.getElementById('mrr-restart');
+if (restartBtn) restartBtn.addEventListener('click', () => startFlight());
+function syncOverlays() {
+  const s = window.MRR.state;
+  if (s === lastOverlayState) return;
+  lastOverlayState = s;
+  if (s === 'menu') {
+    if (menuEl) menuEl.hidden = false;
+    if (endEl) endEl.hidden = true;
+    syncMissionButtons();
+  } else if (s === 'crashed' || s === 'complete') {
+    if (menuEl) menuEl.hidden = true;
+    if (endEl) endEl.hidden = false;
+    if (s === 'crashed') {
+      if (endTitleEl) endTitleEl.textContent = 'TABRAKAN!';
+      if (endTextEl) endTextEl.textContent = lastCrashReason || 'Pesawat tidak bisa terbang lagi.';
+    } else {
+      if (endTitleEl) endTitleEl.textContent = 'MISI SELESAI!';
+      if (endTextEl) endTextEl.textContent = `${missions.MISSION_DEFS[window.MRR.mission].name} — ${window.MRR.progress}`;
+    }
+    if (endScoreEl) endScoreEl.textContent = `Skor ${missions.manager.score}`;
+  } else {
+    if (menuEl) menuEl.hidden = true;
+    if (endEl) endEl.hidden = true;
+  }
+}
+
 // --- window.MRR contract -----------------------------------------------------
 const MRR = {
   alt: 0, speed: 0, heading: 0, throttle: 0, fuel: 1, damage: 0,
@@ -156,6 +205,7 @@ function setMission(id) {
   MRR.waypointsLeft = missions.manager.waypointsLeft;
   MRR.progress = missions.manager.progress;
   toast(`${missions.MISSION_DEFS[MRR.mission].name} — ${missions.MISSION_DEFS[MRR.mission].tagline}`);
+  syncMissionButtons();
   return MRR.mission;
 }
 
@@ -204,6 +254,8 @@ MRR.setMission = setMission;
 MRR.setTimeOfDay = setTimeOfDay;
 MRR.start = startFlight;
 MRR.restart = startFlight;
+// Debug/helper for staging and tests: terrain height at a point.
+MRR.groundAt = (x, z) => terrain.heightAt(x, z);
 
 // --- HUD (Builder B) ---------------------------------------------------------
 let hudHandles = undefined;
@@ -234,7 +286,8 @@ try {
 if (HAS_SHOT && MRR.state === 'menu') MRR.state = 'flying';
 
 // --- Main loop -----------------------------------------------------------------
-const clock = new THREE.Clock();
+// Manual frame timing (THREE.Clock is deprecated in three r187).
+let lastFrameAt = performance.now();
 let hudFailures = 0;
 
 function refreshTelemetry() {
@@ -270,13 +323,16 @@ function handleFlightEvents(events) {
     } else if (ev === 'crashed-terrain') {
       flight.damage = 1;
       MRR.state = 'crashed';
+      lastCrashReason = 'Pesawat menghantam lereng gunung.';
       toast('TABRAKAN! Pesawat menghantam lereng. Tekan Enter untuk mencoba lagi.', 5);
     } else if (ev === 'crashed-water') {
       flight.damage = 1;
       MRR.state = 'crashed';
+      lastCrashReason = 'Pesawat mendarat darurat di laut.';
       toast('MENDARAT DARURAT DI LAUT! Tekan Enter untuk mencoba lagi.', 5);
     } else if (ev === 'crashed-damage') {
       MRR.state = 'crashed';
+      lastCrashReason = 'Kerusakan mencapai 100%.';
       toast('Kerusakan 100% — pesawat tidak bisa terbang. Tekan Enter.', 5);
     } else if (ev === 'fuel-empty') {
       toast('BAHAN BAKAR HABIS! Cari landasan, meluncur dengan hati-hati.', 5);
@@ -299,7 +355,9 @@ function handleMissionEvents(events) {
 
 function animate() {
   requestAnimationFrame(animate);
-  const dt = Math.min(clock.getDelta(), 0.05);
+  const now = performance.now();
+  const dt = Math.min((now - lastFrameAt) / 1000, 0.05);
+  lastFrameAt = now;
   const flying = MRR.state === 'flying' || MRR.state === 'landed';
 
   if (flying) {
@@ -326,6 +384,7 @@ function animate() {
 
   if (MRR.state === 'menu') cameraRig.setMode('orbit');
   else if (MRR.camera === 'orbit') cameraRig.setMode('chase');
+  aircraft.setCockpitMode(cameraRig.rig.mode === 'cockpit');
   cameraRig.update(
     dt,
     new THREE.Vector3(flight.pos.x, flight.pos.y, flight.pos.z),
@@ -338,6 +397,7 @@ function animate() {
   }
 
   refreshTelemetry();
+  syncOverlays();
   if (hudFailures < 3) {
     try {
       updateHud(hudHandles, window.MRR);

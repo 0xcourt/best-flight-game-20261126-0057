@@ -12,6 +12,7 @@ export const TAKEOFF_SPEED = 34;
 
 export function createFlight(terrain) {
   const flight = {
+    terrain,
     pos: { x: 0, y: 8, z: 560 },
     heading: 0,
     pitch: 0,
@@ -40,7 +41,9 @@ export function resetFlight(flight, pose) {
   flight.fuel = 1;
   flight.damage = 0;
   flight.verticalSpeed = 0;
-  flight.onGround = flight.pos.y <= 9;
+  // On the ground when sitting on the strip, whatever the strip's height
+  // above sea level is (the runway sits at local terrain height, ~100 m+).
+  flight.onGround = flight.pos.y <= flight.terrain.heightAt(flight.pos.x, flight.pos.z) + 2.5;
   flight.fuelEmpty = false;
   flight.outOfBounds = false;
 }
@@ -70,7 +73,16 @@ export function stepFlight(flight, input, dt, terrain) {
   const rollRate = 65;
   if (input.pitchUp) flight.pitch = clamp(flight.pitch + pitchRate * dt, -12, 26);
   else if (input.pitchDown) flight.pitch = clamp(flight.pitch - pitchRate * dt, -18, 26);
-  else flight.pitch = lerp(flight.pitch, flight.onGround ? 0 : 2, 1 - Math.exp(-dt * 0.9));
+  else {
+    // Auto-level: gentle in normal flight, and near the ground on approach
+    // it holds the pilot's pitch far longer so a flare is possible.
+    const groundHere = terrain.heightAt(flight.pos.x, flight.pos.z);
+    const agl = flight.pos.y - groundHere;
+    const landingZone = !flight.onGround && agl < 25 && flight.speed < 60;
+    const levelTarget = flight.onGround || landingZone ? 0 : 2;
+    const levelRate = landingZone ? 0.35 : 0.9;
+    flight.pitch = lerp(flight.pitch, levelTarget, 1 - Math.exp(-dt * levelRate));
+  }
 
   let targetRoll = 0;
   if (input.rollLeft) targetRoll = -48;

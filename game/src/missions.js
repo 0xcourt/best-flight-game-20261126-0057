@@ -142,6 +142,8 @@ export function createMissionManager(scene, terrain, seed) {
   function buildRings() {
     clearGroup(ringGroup);
     rings = ringPositions(seed).map((p, i) => {
+      // Keep every ring in the air: at least 55 m above the local terrain.
+      p = { ...p, y: Math.max(p.y, terrain.heightAt(p.x, p.z) + 60) };
       const torus = new THREE.Mesh(
         new THREE.TorusGeometry(14, 1.3, 8, 28),
         new THREE.MeshBasicMaterial({ color: 0xffa726, transparent: true, opacity: 0.95 })

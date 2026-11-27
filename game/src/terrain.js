@@ -39,7 +39,10 @@ export function makeHeightAt(seed) {
     h += mask * fbm(x * 0.006 + 40, z * 0.006 - 17) * 26;
     return h;
   }
-  // The airstrip is bulldozed flat so landings are fair.
+  // The airstrip is bulldozed flat at the local terrain height, so the
+  // runway sits in the landscape instead of cutting a canyon through it.
+  const stripElevation = Math.round(rawHeight(RUNWAY.x, RUNWAY.z));
+  RUNWAY.elevation = stripElevation;
   function heightAt(x, z) {
     let h = rawHeight(x, z);
     const dx = Math.max(Math.abs(x - RUNWAY.x) - RUNWAY.halfWidth, 0);
@@ -47,7 +50,7 @@ export function makeHeightAt(seed) {
     const d = Math.hypot(dx, dz);
     if (d < 90) {
       const t = 1 - smoothstep(0, 90, d);
-      h = lerp(h, RUNWAY.elevation, t);
+      h = lerp(h, stripElevation, t);
     }
     return h;
   }
@@ -84,7 +87,7 @@ function paintTerrainColor(h, slope, distVolcano, out) {
 
 function buildGroundMesh(heightAt) {
   const size = 3800;
-  const seg = 140;
+  const seg = 80;
   const geo = new THREE.PlaneGeometry(size, size, seg, seg);
   geo.rotateX(-Math.PI / 2);
   const pos = geo.attributes.position;
@@ -104,11 +107,9 @@ function buildGroundMesh(heightAt) {
   }
   geo.setAttribute('color', new THREE.BufferAttribute(colors, 3));
   geo.computeVertexNormals();
-  const mat = new THREE.MeshStandardMaterial({
+  const mat = new THREE.MeshLambertMaterial({
     vertexColors: true,
     flatShading: true,
-    roughness: 1,
-    metalness: 0,
   });
   const mesh = new THREE.Mesh(geo, mat);
   mesh.name = 'terrain';
@@ -118,12 +119,8 @@ function buildGroundMesh(heightAt) {
 function buildSea() {
   const geo = new THREE.PlaneGeometry(9000, 9000, 1, 1);
   geo.rotateX(-Math.PI / 2);
-  const mat = new THREE.MeshStandardMaterial({
+  const mat = new THREE.MeshLambertMaterial({
     color: 0x1e6f9e,
-    transparent: true,
-    opacity: 0.92,
-    roughness: 0.35,
-    metalness: 0.05,
   });
   const sea = new THREE.Mesh(geo, mat);
   sea.position.y = SEA_LEVEL + 0.2;
@@ -137,11 +134,11 @@ function buildRunwayStrip() {
   const y = RUNWAY.elevation + 0.35;
   const asphalt = new THREE.Mesh(
     new THREE.BoxGeometry(RUNWAY.halfWidth * 2, 0.6, RUNWAY.halfLength * 2),
-    new THREE.MeshStandardMaterial({ color: 0x33383e, roughness: 0.95 })
+    new THREE.MeshLambertMaterial({ color: 0x33383e })
   );
   asphalt.position.set(RUNWAY.x, y, RUNWAY.z);
   group.add(asphalt);
-  const white = new THREE.MeshStandardMaterial({ color: 0xf2f2e8, roughness: 0.8 });
+  const white = new THREE.MeshLambertMaterial({ color: 0xf2f2e8 });
   // Centreline dashes.
   for (let i = -9; i <= 9; i++) {
     const dash = new THREE.Mesh(new THREE.BoxGeometry(1.2, 0.15, 14), white);
@@ -164,20 +161,20 @@ function buildRunwayStrip() {
   // Windsock beside the strip.
   const pole = new THREE.Mesh(
     new THREE.CylinderGeometry(0.18, 0.22, 9, 6),
-    new THREE.MeshStandardMaterial({ color: 0xd8d8d8, roughness: 0.6 })
+    new THREE.MeshLambertMaterial({ color: 0xd8d8d8 })
   );
   pole.position.set(RUNWAY.x + 24, y + 4.5, RUNWAY.z + 60);
   group.add(pole);
   const sock = new THREE.Mesh(
     new THREE.ConeGeometry(1.1, 4.2, 8),
-    new THREE.MeshStandardMaterial({ color: 0xff7a1a, roughness: 0.7 })
+    new THREE.MeshLambertMaterial({ color: 0xff7a1a })
   );
   sock.rotation.z = Math.PI / 2.3;
   sock.position.set(RUNWAY.x + 26.2, y + 8.4, RUNWAY.z + 60);
   group.add(sock);
   // Two hangars and a control tower.
-  const hangarMat = new THREE.MeshStandardMaterial({ color: 0x8a94a0, roughness: 0.8 });
-  const roofMat = new THREE.MeshStandardMaterial({ color: 0xc23b2e, roughness: 0.8 });
+  const hangarMat = new THREE.MeshLambertMaterial({ color: 0x8a94a0 });
+  const roofMat = new THREE.MeshLambertMaterial({ color: 0xc23b2e });
   for (const hz of [RUNWAY.z - 120, RUNWAY.z - 60]) {
     const hangar = new THREE.Mesh(new THREE.BoxGeometry(20, 8, 15), hangarMat);
     hangar.position.set(RUNWAY.x - 34, y + 4, hz);
@@ -191,16 +188,14 @@ function buildRunwayStrip() {
   }
   const tower = new THREE.Mesh(
     new THREE.CylinderGeometry(2.2, 2.8, 20, 8),
-    new THREE.MeshStandardMaterial({ color: 0xe8e4d8, roughness: 0.8 })
+    new THREE.MeshLambertMaterial({ color: 0xe8e4d8 })
   );
   tower.position.set(RUNWAY.x + 30, y + 10, RUNWAY.z - 150);
   group.add(tower);
   const cab = new THREE.Mesh(
     new THREE.BoxGeometry(9, 4.5, 9),
-    new THREE.MeshStandardMaterial({
+    new THREE.MeshLambertMaterial({
       color: 0x223344,
-      roughness: 0.3,
-      metalness: 0.4,
       emissive: 0x88bbdd,
       emissiveIntensity: 0.35,
     })
@@ -213,19 +208,21 @@ function buildRunwayStrip() {
 function buildClouds(rng) {
   const group = new THREE.Group();
   group.name = 'clouds';
-  const mat = new THREE.MeshLambertMaterial({ color: 0xffffff, transparent: true, opacity: 0.92 });
+  const mat = new THREE.MeshLambertMaterial({ color: 0xffffff, transparent: true, opacity: 0.85 });
   const clouds = [];
-  for (let i = 0; i < 14; i++) {
+  for (let i = 0; i < 10; i++) {
     const cloud = new THREE.Group();
     const puffs = 3 + Math.floor(rng() * 3);
     for (let p = 0; p < puffs; p++) {
-      const r = 14 + rng() * 18;
+      const r = 10 + rng() * 12;
       const s = new THREE.Mesh(new THREE.SphereGeometry(r, 7, 5), mat);
       s.position.set((rng() - 0.5) * 55, (rng() - 0.5) * 6, (rng() - 0.5) * 26);
       s.scale.y = 0.45;
       cloud.add(s);
     }
-    cloud.position.set((rng() - 0.5) * 3600, 260 + rng() * 130, (rng() - 0.5) * 3600);
+    // High band (480–600 m): clear of the 100–400 m cruise and ring band,
+    // so a screenshot never flies through a cloud.
+    cloud.position.set((rng() - 0.5) * 3600, 480 + rng() * 120, (rng() - 0.5) * 3600);
     cloud.userData.speed = 2 + rng() * 3;
     group.add(cloud);
     clouds.push(cloud);
@@ -237,9 +234,9 @@ function buildSmoke() {
   const group = new THREE.Group();
   group.name = 'volcano-smoke';
   const puffs = [];
-  const mat = new THREE.MeshBasicMaterial({ color: 0x9a9a9a, transparent: true, opacity: 0.55 });
+  const mat = new THREE.MeshBasicMaterial({ color: 0x9a9a9a, transparent: true, opacity: 0.4 });
   for (let i = 0; i < 9; i++) {
-    const puff = new THREE.Mesh(new THREE.SphereGeometry(9 + i * 1.6, 7, 5), mat.clone());
+    const puff = new THREE.Mesh(new THREE.SphereGeometry(6 + i * 1.0, 7, 5), mat.clone());
     puff.userData.phase = i / 9;
     group.add(puff);
     puffs.push(puff);
@@ -283,9 +280,9 @@ export function createTerrain(scene, seed) {
         baseY + ph * 130,
         VOLCANO_POS.z + Math.cos(ph * 7) * 10 - ph * 18
       );
-      const s = 0.7 + ph * 1.9;
+      const s = 0.6 + ph * 1.2;
       puff.scale.set(s, s * 0.8, s);
-      puff.material.opacity = 0.55 * (1 - ph);
+      puff.material.opacity = 0.4 * (1 - ph);
     }
     crater.material.color.setHSL(0.05, 0.95, 0.45 + Math.sin(clock.t * 2.2) * 0.08);
   }

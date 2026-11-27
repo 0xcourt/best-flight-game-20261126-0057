@@ -16,6 +16,33 @@
     opacity: 0; transition: opacity 0.3s; pointer-events: none; z-index: 40;
     max-width: 86vw;
   }
+  #mrr-menu, #mrr-end {
+    position: fixed; inset: 0; display: flex; align-items: center; justify-content: center;
+    background: rgba(6, 16, 26, 0.45); z-index: 50; font-family: system-ui, sans-serif;
+  }
+  #mrr-menu[hidden], #mrr-end[hidden] { display: none; }
+  .mrr-card {
+    background: rgba(8, 20, 32, 0.92); border: 1px solid rgba(255, 210, 127, 0.55);
+    border-radius: 16px; padding: 26px 32px; max-width: 560px; width: 88vw;
+    color: #eef6fb; text-align: center; box-shadow: 0 12px 48px rgba(0,0,0,0.5);
+  }
+  .mrr-card h1 { margin: 0 0 4px; font-size: 34px; letter-spacing: 2px; color: #ffd27f; }
+  .mrr-card h2 { margin: 0 0 12px; font-size: 26px; color: #ffd27f; }
+  .mrr-card p { margin: 6px 0; font-size: 15px; line-height: 1.5; color: #cfe3ee; }
+  .mrr-missions { display: flex; gap: 10px; margin: 16px 0 6px; }
+  .mrr-missions button {
+    flex: 1; background: #12324a; color: #eef6fb; border: 1px solid #2b6a8f;
+    border-radius: 10px; padding: 10px 8px; font: bold 14px system-ui, sans-serif; cursor: pointer;
+  }
+  .mrr-missions button.sel { background: #c23b2e; border-color: #ffd27f; }
+  .mrr-missions button small { display: block; font-weight: normal; font-size: 11px; color: #bcd6e4; margin-top: 4px; line-height: 1.35; }
+  .mrr-controls { font-size: 13px; color: #9fc0d2; margin: 10px 0 16px; line-height: 1.7; }
+  .mrr-big {
+    background: #c23b2e; color: #fff; border: none; border-radius: 10px;
+    font: bold 18px system-ui, sans-serif; padding: 12px 34px; cursor: pointer; letter-spacing: 1px;
+  }
+  .mrr-big:hover { background: #d84a3a; }
+  .mrr-score { font-size: 22px; color: #7fd4ff; font-weight: bold; }
 </style>
 <script type="importmap">
 { "imports": { "three": "./vendor/three.min.js" } }
@@ -23,6 +50,29 @@
 </head>
 <body>
 <div id="mrr-toast" role="status"></div>
+<div id="mrr-menu">
+  <div class="mrr-card">
+    <h1>MERAPI RIDGE RUN</h1>
+    <p>Terbang di atas kepulauan vulkanik Indonesia — lewati ring, antar suplai, dan survei kawah Merapi.</p>
+    <div class="mrr-missions">
+      <button data-mission="ring" class="sel">RING RUN<small>8 ring di atas pantai &amp; lereng</small></button>
+      <button data-mission="supply">SUPPLY DROP<small>3 paket ke desa, tekan G</small></button>
+      <button data-mission="survey">VOLCANO SURVEY<small>5 waypoint di kawah</small></button>
+    </div>
+    <div class="mrr-controls">W/S throttle &nbsp;·&nbsp; Panah: pitch &amp; bank &nbsp;·&nbsp; A/D rudder &nbsp;·&nbsp; Spasi: rem udara &nbsp;·&nbsp; C: kamera &nbsp;·&nbsp; G: jatuhkan paket &nbsp;·&nbsp; R: ulang</div>
+    <button class="mrr-big" id="mrr-start">TERBANG &#9654;</button>
+    <p style="font-size:12px;color:#8fb0c2">atau tekan Enter — bahan bakar dan kerusakan membuat tiap sortie jadi keputusan.</p>
+  </div>
+</div>
+<div id="mrr-end" hidden>
+  <div class="mrr-card">
+    <h2 id="mrr-end-title">MISI SELESAI!</h2>
+    <p id="mrr-end-text"></p>
+    <p class="mrr-score" id="mrr-end-score"></p>
+    <button class="mrr-big" id="mrr-restart">TERBANG LAGI &#8635;</button>
+    <p style="font-size:12px;color:#8fb0c2">atau tekan Enter</p>
+  </div>
+</div>
 <script type="module" src="./src/main.js"></script>
 </body>
 </html>
