@@ -123,9 +123,9 @@ export function createAircraft(scene) {
   const spinner = new THREE.Mesh(new THREE.ConeGeometry(0.34, 0.8, 8), red);
   spinner.rotation.x = -Math.PI / 2;
   propeller.add(spinner);
-  const bladeMat = std(0x1c1c1c, { roughness: 0.4, metalness: 0.3 });
+  const bladeMat = std(0x1c1c1c, { roughness: 0.4, metalness: 0.3, transparent: true, opacity: 0.55 });
   for (let i = 0; i < 2; i++) {
-    const blade = new THREE.Mesh(new THREE.BoxGeometry(0.28, 2.6, 0.1), bladeMat);
+    const blade = new THREE.Mesh(new THREE.BoxGeometry(0.16, 2.6, 0.08), bladeMat);
     blade.rotation.z = (i * Math.PI) / 2;
     blade.rotation.y = 0.35;
     propeller.add(blade);
@@ -170,7 +170,7 @@ export function createAircraft(scene) {
   );
   gps.position.set(0, -0.015, 0.12);
   panel.add(gps);
-  panel.position.set(0, 0.42, -2.05);
+  panel.position.set(0, 0.3, -2.05);
   panel.rotation.x = -0.12;
   group.add(panel);
 

@@ -12,7 +12,7 @@
 //   1 cover    — chase view, runway + first ring ahead, morning light
 //   2 cockpit  — cockpit view, lit panel, ring ahead
 //   3 rings    — Ring Run action, fast, close to a ring
-//   4 volcano  — Volcano Survey, high over the crater, runway in view
+//   4 volcano  — Volcano Survey, closing on the crater, waypoint ahead
 //
 // ?mission= and ?view= on the URL override the shot's defaults; ?seed=
 // is read by the game itself, so the same seed always stages the same
@@ -38,11 +38,11 @@ const SHOT_STAGING = {
   },
   3: {
     mission: 'ring', view: 'chase', timeOfDay: 0.35,
-    pose: { x: 0, y: 400, z: 80, headingDeg: 0, pitchDeg: 0, speed: 290, throttle: 0.95 },
+    pose: { x: 0, y: 150, z: 360, headingDeg: 0, pitchDeg: 0, speed: 220, throttle: 0.8 },
   },
   4: {
     mission: 'survey', view: 'chase', timeOfDay: 0.55,
-    pose: { x: 0, y: 950, z: 1500, headingDeg: 0, pitchDeg: -8, speed: 200, throttle: 0.6 },
+    pose: { x: -500, y: 560, z: -50, headingDeg: 332, pitchDeg: -6, speed: 200, throttle: 0.6 },
   },
 };
 
@@ -86,6 +86,10 @@ export async function stageShot(number) {
   window.setTimeout(() => flight.setPose(staging.pose), 250);
   await new Promise((resolve) => window.setTimeout(resolve, SETTLE_MS));
   flight.setCamera(view);
+  // Shot mode is a still frame: the mission toast duplicates the HUD's
+  // mission panel and overlaps it, so hide it for the capture.
+  const toast = document.getElementById('mrr-toast');
+  if (toast) toast.style.display = 'none';
   window.__shotReady = true;
   document.documentElement.setAttribute('data-shot-ready', '1');
   return true;

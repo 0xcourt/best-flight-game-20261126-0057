@@ -40,9 +40,12 @@ function makeCompassTick(degrees) {
   if (cardinal) {
     tick.classList.add('mrr-tick-cardinal');
     tick.textContent = cardinal;
-  } else {
+  } else if (degrees % 30 === 0) {
+    // Labelled only every 30°: at 1.1 px/deg a label every 10° sits 11 px
+    // from its neighbours and smears into an unreadable strip.
     tick.textContent = String(degrees);
   }
+  // Other ticks keep only the ::after mark, no text.
   tick.dataset.degrees = String(degrees);
   return tick;
 }
@@ -164,60 +167,84 @@ function updateCompassTape(handles, headingDegrees) {
  */
 export function updateHud(handles, flight) {
   const state = flight || {};
+  const last = (handles._last ||= {});
+  // Write a text node only when its value changed: rewriting textContent
+  // every frame forces style/layout work and, with the game's own loop
+  // also calling updateHud, was the main HUD cost headless.
+  const setText = (el, key, value) => {
+    if (last[key] !== value) { last[key] = value; el.textContent = value; }
+  };
   const alt = Math.round(state.alt || 0);
   const speed = Math.round(state.speed || 0);
   const headingDegrees = Math.round(((state.heading || 0) % 360 + 360) % 360);
 
-  handles.altValue.textContent = String(alt);
-  handles.speedValue.textContent = String(speed);
-  handles.heading.textContent = String(headingDegrees).padStart(3, '0');
-  handles.state.textContent = STATE_LABELS[state.state] || 'STANDBY';
-  handles.clock.textContent = formatClock(state.time);
-  handles.missionName.textContent = MISSION_NAMES[state.mission] || 'RING RUN';
-  handles.objective.textContent = state.objective || 'Fly through the rings';
-  handles.progress.textContent = state.progress
-    || `Ring ${state.ringsHit || 0}/${state.ringsTotal || 8}`;
-  handles.score.textContent = String(Math.round(state.score || 0));
+  setText(handles.altValue, 'alt', String(alt));
+  setText(handles.speedValue, 'speed', String(speed));
+  setText(handles.heading, 'heading', String(headingDegrees).padStart(3, '0'));
+  setText(handles.state, 'state', STATE_LABELS[state.state] || 'STANDBY');
+  setText(handles.clock, 'clock', formatClock(state.time));
+  setText(handles.missionName, 'mission', MISSION_NAMES[state.mission] || 'RING RUN');
+  setText(handles.objective, 'objective', state.objective || 'Fly through the rings');
+  setText(handles.progress, 'progress', state.progress
+    || `Ring ${state.ringsHit || 0}/${state.ringsTotal || 8}`);
+  setText(handles.score, 'score', String(Math.round(state.score || 0)));
 
-  updateCompassTape(handles, headingDegrees);
+  // The tape only moves when the heading does.
+  if (last.headingDegrees !== headingDegrees) {
+    last.headingDegrees = headingDegrees;
+    updateCompassTape(handles, headingDegrees);
+  }
 
   const throttle = Math.min(1, Math.max(0, state.throttle || 0));
   const fuel = Math.min(1, Math.max(0, state.fuel ?? 1));
   const damage = Math.min(1, Math.max(0, state.damage || 0));
-  handles.bars.throttle.fill.style.width = `${Math.round(throttle * 100)}%`;
-  handles.bars.throttle.value.textContent = `${Math.round(throttle * 100)}%`;
-  handles.bars.fuel.fill.style.width = `${Math.round(fuel * 100)}%`;
-  handles.bars.fuel.value.textContent = `${Math.round(fuel * 100)}%`;
-  handles.bars.fuel.fill.classList.toggle('low', fuel < 0.25);
-  handles.bars.damage.fill.style.width = `${Math.round(damage * 100)}%`;
-  handles.bars.damage.value.textContent = `${Math.round(damage * 100)}%`;
+  const setBar = (bar, key, pct) => {
+    if (last[key] !== pct) {
+      last[key] = pct;
+      bar.fill.style.width = `${pct}%`;
+      bar.value.textContent = `${pct}%`;
+    }
+  };
+  setBar(handles.bars.throttle, 'thr', Math.round(throttle * 100));
+  setBar(handles.bars.fuel, 'fuel', Math.round(fuel * 100));
+  setBar(handles.bars.damage, 'dmg', Math.round(damage * 100));
+  const fuelLow = fuel < 0.25;
+  if (last.fuelLow !== fuelLow) {
+    last.fuelLow = fuelLow;
+    handles.bars.fuel.fill.classList.toggle('low', fuelLow);
+  }
 
   const flying = state.state === 'flying';
-  handles.lampFuel.classList.toggle('on', flying && fuel < 0.25);
-  handles.lampDamage.classList.toggle('on', flying && damage > 0.5);
-  handles.lampStall.classList.toggle('on', flying && speed > 0 && speed < 90);
+  const toggleLamp = (el, key, on) => {
+    if (last[key] !== on) { last[key] = on; el.classList.toggle('on', on); }
+  };
+  toggleLamp(handles.lampFuel, 'lampFuel', flying && fuel < 0.25);
+  toggleLamp(handles.lampDamage, 'lampDamage', flying && damage > 0.5);
+  toggleLamp(handles.lampStall, 'lampStall', flying && speed > 0 && speed < 90);
 
   const bannerText = BANNER_TEXT[state.state];
-  if (bannerText) {
-    handles.bannerTitle.textContent = bannerText[0];
-    handles.bannerSub.textContent = bannerText[1];
-    handles.banner.classList.add('on');
-  } else {
-    handles.banner.classList.remove('on');
+  const bannerKey = bannerText ? bannerText[0] : '';
+  if (last.banner !== bannerKey) {
+    last.banner = bannerKey;
+    if (bannerText) {
+      handles.bannerTitle.textContent = bannerText[0];
+      handles.bannerSub.textContent = bannerText[1];
+      handles.banner.classList.add('on');
+    } else {
+      handles.banner.classList.remove('on');
+    }
   }
 }
 
 /**
- * Mount the HUD and start its per-frame update loop. Safe to call twice:
- * the second call reuses the overlay already in the document.
+ * Mount the HUD and return its handles. It paints nothing by itself: the
+ * game's own loop calls updateHud(handles, window.MRR) once per frame.
+ * (An earlier version also ran its own rAF loop here, so updateHud ran
+ * twice per frame — the main headless cost. Safe to call twice: the
+ * second call reuses the overlay already in the document.)
  */
 export function mountHud() {
   if (document.getElementById('mrr-hud')) return;
   const handles = buildHudDom();
-  const tick = () => {
-    updateHud(handles, window.MRR);
-    requestAnimationFrame(tick);
-  };
-  requestAnimationFrame(tick);
   return handles;
 }

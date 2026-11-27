@@ -37,11 +37,11 @@
   .mrr-missions button.sel { background: #c23b2e; border-color: #ffd27f; }
   .mrr-missions button small { display: block; font-weight: normal; font-size: 11px; color: #bcd6e4; margin-top: 4px; line-height: 1.35; }
   .mrr-controls { font-size: 13px; color: #9fc0d2; margin: 10px 0 16px; line-height: 1.7; }
-  .mrr-big {
+  .mrr-btn-big {
     background: #c23b2e; color: #fff; border: none; border-radius: 10px;
     font: bold 18px system-ui, sans-serif; padding: 12px 34px; cursor: pointer; letter-spacing: 1px;
   }
-  .mrr-big:hover { background: #d84a3a; }
+  .mrr-btn-big:hover { background: #d84a3a; }
   .mrr-score { font-size: 22px; color: #7fd4ff; font-weight: bold; }
 </style>
 <script type="importmap">
@@ -60,7 +60,7 @@
       <button data-mission="survey">VOLCANO SURVEY<small>5 waypoint di kawah</small></button>
     </div>
     <div class="mrr-controls">W/S throttle &nbsp;·&nbsp; Panah: pitch &amp; bank &nbsp;·&nbsp; A/D rudder &nbsp;·&nbsp; Spasi: rem udara &nbsp;·&nbsp; C: kamera &nbsp;·&nbsp; G: jatuhkan paket &nbsp;·&nbsp; R: ulang</div>
-    <button class="mrr-big" id="mrr-start">TERBANG &#9654;</button>
+    <button class="mrr-btn-big" id="mrr-start">TERBANG &#9654;</button>
     <p style="font-size:12px;color:#8fb0c2">atau tekan Enter — bahan bakar dan kerusakan membuat tiap sortie jadi keputusan.</p>
   </div>
 </div>
@@ -69,7 +69,7 @@
     <h2 id="mrr-end-title">MISI SELESAI!</h2>
     <p id="mrr-end-text"></p>
     <p class="mrr-score" id="mrr-end-score"></p>
-    <button class="mrr-big" id="mrr-restart">TERBANG LAGI &#8635;</button>
+    <button class="mrr-btn-big" id="mrr-restart">TERBANG LAGI &#8635;</button>
     <p style="font-size:12px;color:#8fb0c2">atau tekan Enter</p>
   </div>
 </div>
